@@ -459,7 +459,7 @@ def main():
     knowledge_stats = build_knowledge()
 
     # Step 3: AI 智能分析
-    print("\n🤖 Step 3/7: AI 智能分析", file=sys.stderr)
+    print("\n🤖 Step 3/8: AI 智能分析", file=sys.stderr)
     ai_analysis = {}
     ai_insights_data = {}
     try:
@@ -475,28 +475,43 @@ def main():
         print(f"  ⚠️ AI 分析跳过: {e}", file=sys.stderr)
 
     # Step 4: 分析风险变化
-    print("\n📊 Step 4/7: 风险变化追踪", file=sys.stderr)
+    print("\n📊 Step 4/8: 风险变化追踪", file=sys.stderr)
     prev_risks = load_previous_risks()
     risk_week = knowledge_stats.get("week", "")
     risk_path = MEMORY_DIR / "risks" / f"{risk_week}.md" if risk_week else None
     risk_changes = analyze_risk_changes(risk_path, prev_risks)
     print(f"  ✅ 新增 {len(risk_changes['new'])} / 持续 {len(risk_changes['ongoing'])} / 解决 {len(risk_changes['resolved'])}", file=sys.stderr)
 
+    # Step 4.5: 行业情报桥接
+    print("\n🛰️ Step 4.5/8: 行业情报动态", file=sys.stderr)
+    radar_html = ""
+    try:
+        radar_cmd = [sys.executable, str(SCRIPTS_DIR / "radar_bridge.py"), "--html"]
+        result = subprocess.run(radar_cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0 and result.stdout.strip():
+            radar_html = result.stdout.strip()
+            print(f"  ✅ 获取到行业情报", file=sys.stderr)
+        else:
+            print(f"  ⏭️ 情报雷达未运行或无数据，跳过", file=sys.stderr)
+    except Exception:
+        print(f"  ⏭️ 情报雷达不可用，跳过", file=sys.stderr)
+
     # Step 5: 生成简报
-    print("\n📝 Step 5/7: 生成 CEO 简报", file=sys.stderr)
+    print("\n📝 Step 5/8: 生成 CEO 简报", file=sys.stderr)
     classified = classify_reports(data)
     key_items = extract_key_items(data)
     stats = submission_stats(data)
     html = generate_html_briefing(data, knowledge_stats, risk_changes, classified, key_items, stats)
 
-    # 注入 AI 分析段落
+    # 注入 AI 分析段落 + 行业情报
     ai_section = build_ai_section(ai_analysis, ai_insights_data)
-    if ai_section:
-        html = html.replace("</div>\n\n<div style=\"text-align:center", f"{ai_section}</div>\n\n<div style=\"text-align:center")
+    inject = (ai_section or "") + (radar_html or "")
+    if inject:
+        html = html.replace("</div>\n\n<div style=\"text-align:center", f"{inject}</div>\n\n<div style=\"text-align:center")
     print(f"  ✅ 简报生成完成（{len(html)} 字符）", file=sys.stderr)
 
     # Step 6: 实时预警检查
-    print("\n🚨 Step 6/7: 实时预警检查", file=sys.stderr)
+    print("\n🚨 Step 6/8: 实时预警检查", file=sys.stderr)
     if ai_analysis.get("high_risks") or ai_analysis.get("systemic_risks"):
         try:
             alert_cmd = [sys.executable, str(SCRIPTS_DIR / "realtime_alert.py"), "/tmp/ai_analysis.json"]
@@ -507,7 +522,7 @@ def main():
         print("  ✅ 无高风险，跳过预警", file=sys.stderr)
 
     # Step 7: 发送 & 同步
-    print("\n📤 Step 7/7: 发送邮件 & 同步 OpenClaw", file=sys.stderr)
+    print("\n📤 Step 7/8: 发送邮件 & 同步 OpenClaw", file=sys.stderr)
     period = data.get("period", "")
     high_count = len(ai_analysis.get("high_risks", []))
     subject = f"📊 CEO 周报简报（{period}）— {'🔴 ' + str(high_count) + '项高风险 / ' if high_count else ''}{stats['unique_submitters']} 人提交"
